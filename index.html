@@ -7,3 +7,106 @@ function render(){const lista=$('lista');lista.replaceChildren();if(!citas.lengt
 $('form').onsubmit=e=>{e.preventDefault();citas.push({id:Date.now()+'-'+Math.random(),cliente:$('cliente').value.trim(),telefono:$('telefono').value.trim(),servicio:$('servicio').value,fecha:$('fecha').value,notas:$('notas').value.trim()});save();e.target.reset();alert('Cita guardada')};
 $('download').onclick=()=>{const rows=[['Clienta','Telefono','Servicio','Fecha','Notas'],...citas.map(c=>[c.cliente,c.telefono,c.servicio,c.fecha,c.notas])];const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v||'').replaceAll('"','""')+'"').join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='luze-t-citas.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};render();
 </script></body></html>
+<script>
+(() => {
+  const salon = '529611983438';
+
+  function abrirWhatsApp(numero, mensaje) {
+    location.href = 'https://wa.me/' + numero +
+      '?text=' + encodeURIComponent(mensaje);
+  }
+
+  function fechaTexto(fecha) {
+    return new Date(fecha).toLocaleString('es-MX', {
+      dateStyle: 'long',
+      timeStyle: 'short'
+    });
+  }
+
+  function telefonoMX(valor) {
+    const numero = String(valor || '').replace(/\D/g, '');
+    if (/^\d{10}$/.test(numero)) return '52' + numero;
+    if (/^52\d{10}$/.test(numero)) return numero;
+    return '';
+  }
+
+  const solicitar = document.createElement('button');
+  solicitar.type = 'button';
+  solicitar.textContent = 'Solicitar por WhatsApp';
+  solicitar.style.background = '#256b45';
+
+  solicitar.onclick = () => {
+    if (!$('form').reportValidity()) return;
+
+    const nombre = $('cliente').value.trim();
+    if (!nombre) {
+      alert('Escribe el nombre de la clienta.');
+      return;
+    }
+
+    const mensaje = [
+      'Hola, Luze-t. Quiero solicitar una cita.',
+      'Nombre: ' + nombre,
+      'Teléfono: ' + ($('telefono').value.trim() || 'Este WhatsApp'),
+      'Servicio: ' + $('servicio').value,
+      'Horario solicitado: ' + fechaTexto($('fecha').value),
+      'Notas: ' + ($('notas').value.trim() || 'Sin notas'),
+      'Quedo pendiente de que me confirmen disponibilidad.'
+    ].join('\n');
+
+    abrirWhatsApp(salon, mensaje);
+  };
+
+  $('form').append(solicitar);
+
+  const aviso = document.createElement('p');
+  aviso.className = 'muted';
+  aviso.textContent =
+    'La solicitud se envía por WhatsApp y queda pendiente ' +
+    'de confirmación. No se agrega automáticamente a la agenda.';
+  $('form').append(aviso);
+
+  const renderAnterior = render;
+
+  render = function () {
+    renderAnterior();
+
+    const ordenadas = citas.slice().sort(
+      (a, b) => a.fecha.localeCompare(b.fecha)
+    );
+
+    $('lista').querySelectorAll('.item').forEach((item, indice) => {
+      const cita = ordenadas[indice];
+      const confirmar = document.createElement('button');
+      confirmar.type = 'button';
+      confirmar.textContent = 'Preparar confirmación por WhatsApp';
+      confirmar.style.background = '#256b45';
+
+      confirmar.onclick = () => {
+        const numero = telefonoMX(cita.telefono);
+
+        if (!numero) {
+          alert(
+            'Esta cita necesita el teléfono de la clienta ' +
+            'con 10 dígitos para abrir su WhatsApp.'
+          );
+          return;
+        }
+
+        abrirWhatsApp(numero, [
+          'Hola, ' + cita.cliente + '.',
+          'Te confirmamos tu cita en Luze-t.',
+          'Servicio: ' + cita.servicio,
+          'Fecha y hora: ' + fechaTexto(cita.fecha),
+          'Si necesitas cambiarla, avísanos por aquí.',
+          '¡Te esperamos!'
+        ].join('\n'));
+      };
+
+      item.append(confirmar);
+    });
+  };
+
+  render();
+})();
+</script>
